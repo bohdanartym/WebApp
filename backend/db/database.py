@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
+# ВАЖЛИВО: Експортуємо DATABASE_URL для використання в потоках
 DATABASE_URL = "postgresql+asyncpg://postgres:artym287@localhost:5432/WebApp_db"
 
 engine = create_async_engine(DATABASE_URL, echo=True)

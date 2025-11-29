@@ -1,6 +1,12 @@
 const API_BASE = "http://localhost/api";
 
 let accessToken = localStorage.getItem("access_token") || null;
+let currentTaskId = null;
+let pollingInterval = null;
+
+// Віртуальна матриця (зберігається в пам'яті, не в DOM)
+let virtualMatrix = [];
+let virtualVector = [];
 
 function setToken(token) {
     accessToken = token;
@@ -85,12 +91,34 @@ function generateMatrixGrid() {
     const sizeInput = document.getElementById("matrix-size");
     let n = parseInt(sizeInput.value, 10);
     if (isNaN(n) || n < 2) n = 2;
-    if (n > 100) n = 100;
+    if (n > 1000) n = 1000;
     sizeInput.value = n;
 
     const matrixContainer = document.getElementById("matrix-container");
     const rhsContainer = document.getElementById("rhs-container");
 
+    // Для великих матриць (>100) не створюємо DOM елементи
+    if (n > 100) {
+        // Ініціалізуємо віртуальну матрицю
+        virtualMatrix = Array(n).fill(0).map(() => Array(n).fill(0));
+        virtualVector = Array(n).fill(0);
+        
+        matrixContainer.innerHTML = `
+            <div style="padding: 40px; text-align: center; color: #9ca3af;">
+                <p>Матриця ${n}×${n} занадто велика для відображення</p>
+                <p style="font-size: 0.9rem; margin-top: 8px;">Використовуйте "Автозаповнення" для генерації значень</p>
+            </div>
+        `;
+        rhsContainer.innerHTML = `
+            <div style="padding: 40px; text-align: center; color: #9ca3af;">
+                <p>Вектор b</p>
+                <p style="font-size: 0.9rem;">${n} елементів</p>
+            </div>
+        `;
+        return;
+    }
+
+    // Для невеликих матриць створюємо input поля
     const table = document.createElement("table");
     for (let i = 0; i < n; i++) {
         const row = document.createElement("tr");
@@ -131,12 +159,26 @@ function fillMatrixRandom() {
     const sizeInput = document.getElementById("matrix-size");
     let n = parseInt(sizeInput.value, 10);
     if (isNaN(n) || n < 2) n = 2;
-    if (n > 100) n = 100;
+    if (n > 1000) n = 1000;
     sizeInput.value = n;
 
     const min = -10;
     const max = 10;
 
+    // Якщо велика матриця - заповнюємо віртуальну
+    if (n > 100) {
+        virtualMatrix = Array(n).fill(0).map(() => 
+            Array(n).fill(0).map(() => Math.floor(Math.random() * (max - min + 1)) + min)
+        );
+        virtualVector = Array(n).fill(0).map(() => 
+            Math.floor(Math.random() * (max - min + 1)) + min
+        );
+        
+        alert(`Згенеровано матрицю ${n}×${n} та вектор b з випадковими значеннями від ${min} до ${max}`);
+        return;
+    }
+
+    // Для невеликих матриць заповнюємо input поля
     for (let i = 0; i < n; i++) {
         for (let j = 0; j < n; j++) {
             const el = document.getElementById(`cell-${i}-${j}`);
@@ -156,9 +198,18 @@ function collectMatrixAndVector() {
     const sizeInput = document.getElementById("matrix-size");
     let n = parseInt(sizeInput.value, 10);
     if (isNaN(n) || n < 2) n = 2;
-    if (n > 100) n = 100;
+    if (n > 1000) n = 1000;
     sizeInput.value = n;
 
+    // Якщо велика матриця - використовуємо віртуальну
+    if (n > 100) {
+        return { 
+            matrix: virtualMatrix, 
+            rhs: virtualVector 
+        };
+    }
+
+    // Для невеликих матриць збираємо з input полів
     const matrix = [];
     const rhs = [];
 
@@ -184,6 +235,114 @@ function collectMatrixAndVector() {
 function resetProgress() {
     document.getElementById("progress-fill").style.width = "0%";
     document.getElementById("progress-text").textContent = "0%";
+}
+
+function updateProgress(progress) {
+    const fillEl = document.getElementById("progress-fill");
+    const textEl = document.getElementById("progress-text");
+    
+    const percent = Math.min(100, Math.max(0, progress));
+    fillEl.style.width = percent + "%";
+    textEl.textContent = Math.floor(percent) + "%";
+}
+
+function stopPolling() {
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+    }
+}
+
+async function startPolling(taskId) {
+    stopPolling();
+    
+    const resultEl = document.getElementById("solve-result");
+    const cancelBtn = document.getElementById("cancel-btn");
+    
+    pollingInterval = setInterval(async () => {
+        try {
+            // Отримуємо статус задачі
+            const status = await apiRequest("GET", `/tasks/status/${taskId}`, null, false);
+            
+            if (status.status === "processing") {
+                // Оновлюємо прогрес
+                updateProgress(status.progress || 0);
+                
+            } else if (status.status === "completed") {
+                // Задача завершена - отримуємо результат
+                stopPolling();
+                updateProgress(100);
+                
+                const result = await apiRequest("GET", `/tasks/result/${taskId}`, null, false);
+                
+                if (result.solution) {
+                    const n = result.solution.length;
+                    let text = `Розв'язок (${n} змінних):\n`;
+                    
+                    // Показуємо перші 20 значень для великих векторів
+                    const showCount = Math.min(20, n);
+                    for (let i = 0; i < showCount; i++) {
+                        text += `x${i + 1} = ${result.solution[i]}\n`;
+                    }
+                    if (n > 20) {
+                        text += `\n... та ще ${n - 20} значень\n`;
+                        text += `\nПовний розв'язок збережено в історії завдань.`;
+                    }
+                    resultEl.textContent = text;
+                } else {
+                    resultEl.textContent = "Результат отримано, але розв'язок відсутній";
+                }
+                
+                cancelBtn.classList.add("hidden");
+                currentTaskId = null;
+                
+            } else if (status.status === "cancelled") {
+                // Задача скасована
+                stopPolling();
+                resetProgress();
+                resultEl.textContent = "Завдання скасовано";
+                cancelBtn.classList.add("hidden");
+                currentTaskId = null;
+                
+            } else if (status.status === "error") {
+                // Помилка виконання
+                stopPolling();
+                resetProgress();
+                
+                const result = await apiRequest("GET", `/tasks/result/${taskId}`, null, false);
+                resultEl.textContent = "Помилка: " + (result?.error || "невідома помилка");
+                
+                cancelBtn.classList.add("hidden");
+                currentTaskId = null;
+                
+            } else if (status.status === "not_found") {
+                // Задача не знайдена
+                stopPolling();
+                resetProgress();
+                resultEl.textContent = "Задача не знайдена";
+                cancelBtn.classList.add("hidden");
+                currentTaskId = null;
+            }
+            
+        } catch (err) {
+            console.error("Polling error:", err);
+            stopPolling();
+            resultEl.textContent = "Помилка перевірки статусу: " + (err?.detail || "невідома");
+            cancelBtn.classList.add("hidden");
+        }
+    }, 500); // Перевірка кожні 500мс
+}
+
+async function cancelCurrentTask() {
+    if (!currentTaskId) return;
+    
+    try {
+        await apiRequest("POST", `/tasks/cancel/${currentTaskId}`, null, false);
+        // Polling продовжиться і виявить статус "cancelled"
+    } catch (err) {
+        console.error("Cancel error:", err);
+        alert("Помилка скасування: " + (err?.detail || "невідома"));
+    }
 }
 
 async function loadHistory() {
@@ -259,37 +418,58 @@ function showTaskDetails(task) {
 
     let html = "";
 
-    html += "<h4>Матриця A</h4>";
+    const n = matrix.length;
+
+    html += `<h4>Матриця A (${n}×${n})</h4>`;
     if (Array.isArray(matrix) && matrix.length > 0) {
+        // Показуємо тільки перші 10×10 для великих матриць
+        const showSize = Math.min(10, n);
         html += "<table>";
-        for (const row of matrix) {
+        for (let i = 0; i < showSize; i++) {
             html += "<tr>";
-            for (const v of row) {
+            for (let j = 0; j < showSize; j++) {
+                const v = matrix[i][j];
                 html += `<td>${typeof v === "number" ? v.toFixed(2) : v}</td>`;
             }
+            if (n > 10) {
+                html += "<td>...</td>";
+            }
             html += "</tr>";
+        }
+        if (n > 10) {
+            html += "<tr><td colspan='" + (showSize + 1) + "'>... та ще " + (n - showSize) + " рядків</td></tr>";
         }
         html += "</table>";
     } else {
         html += "<p class='muted-text'>Немає даних матриці.</p>";
     }
 
-    html += "<h4>Вектор b</h4>";
+    html += `<h4>Вектор b (${rhs.length} елементів)</h4>`;
     if (Array.isArray(rhs) && rhs.length > 0) {
+        const showCount = Math.min(10, rhs.length);
         html += "<table>";
-        for (const v of rhs) {
+        for (let i = 0; i < showCount; i++) {
+            const v = rhs[i];
             html += `<tr><td>${typeof v === "number" ? v.toFixed(2) : v}</td></tr>`;
+        }
+        if (rhs.length > 10) {
+            html += `<tr><td>... та ще ${rhs.length - 10} елементів</td></tr>`;
         }
         html += "</table>";
     } else {
         html += "<p class='muted-text'>Немає даних вектора.</p>";
     }
 
-    html += "<h4>Розв'язок x</h4>";
+    html += `<h4>Розв'язок x</h4>`;
     if (Array.isArray(solution)) {
+        const showCount = Math.min(10, solution.length);
         html += "<table>";
-        for (const v of solution) {
-            html += `<tr><td>${typeof v === "number" ? v.toFixed(6) : v}</td></tr>`;
+        for (let i = 0; i < showCount; i++) {
+            const v = solution[i];
+            html += `<tr><td>x${i+1} = ${typeof v === "number" ? v.toFixed(6) : v}</td></tr>`;
+        }
+        if (solution.length > 10) {
+            html += `<tr><td>... та ще ${solution.length - 10} значень</td></tr>`;
         }
         html += "</table>";
     } else {
@@ -324,7 +504,6 @@ function switchAuthMode(mode) {
 }
 
 function init() {
-
     document.getElementById("tab-login").addEventListener("click", () => switchAuthMode("login"));
     document.getElementById("tab-register").addEventListener("click", () => switchAuthMode("register"));
 
@@ -417,6 +596,7 @@ function init() {
     });
 
     document.getElementById("logout-btn").addEventListener("click", () => {
+        stopPolling();
         clearToken();
     });
 
@@ -428,63 +608,48 @@ function init() {
         fillMatrixRandom();
     });
 
-
     document.getElementById("solve-btn").addEventListener("click", async () => {
         const resultEl = document.getElementById("solve-result");
+        const cancelBtn = document.getElementById("cancel-btn");
+        
         resultEl.textContent = "";
         resetProgress();
+        stopPolling();
 
         const { matrix, rhs } = collectMatrixAndVector();
 
-        const fillEl = document.getElementById("progress-fill");
-        const textEl = document.getElementById("progress-text");
-
-        fillEl.style.width = "0%";
-        textEl.textContent = "0%";
-
-        let fakeP = 0;
-        const fakeInterval = setInterval(() => {
-            if (fakeP < 90) {
-                fakeP += Math.random() * 15 + 10; 
-                if (fakeP > 90) fakeP = 90;
-                fillEl.style.width = fakeP + "%";
-                textEl.textContent = Math.floor(fakeP) + "%";
-            }
-        }, 10); 
-
         try {
-
+            // Відправляємо запит на розв'язання
             const data = await apiRequest("POST", "/gauss/solve", {
                 matrix,
                 rhs
             }, true);
 
-            clearInterval(fakeInterval);
-
-            let finP = fakeP;
-            const finishInterval = setInterval(() => {
-                finP += 10;
-                if (finP >= 100) {
-                    finP = 100;
-                    clearInterval(finishInterval);
-                }
-                fillEl.style.width = finP + "%";
-                textEl.textContent = Math.floor(finP) + "%";
-            }, 20); 
-
-            const solution = data.solution;
-            let text = "Розв'язок:\n";
-            solution.forEach((x, i) => {
-                text += `x${i + 1} = ${x}\n`;
-            });
-            resultEl.textContent = text;
+            if (data.task_id) {
+                currentTaskId = data.task_id;
+                resultEl.textContent = "Завдання прийнято та перебуває в обробці...\nTask ID: " + data.task_id;
+                
+                // Показуємо кнопку скасування
+                cancelBtn.classList.remove("hidden");
+                
+                // Запускаємо polling для відстеження прогресу
+                await startPolling(data.task_id);
+            } else {
+                resultEl.textContent = "Помилка: не отримано task_id";
+            }
 
         } catch (err) {
-            clearInterval(fakeInterval);
+            stopPolling();
             resetProgress();
             resultEl.textContent = "Помилка: " + (err?.detail || "невідома");
+            cancelBtn.classList.add("hidden");
             console.error(err);
         }
+    });
+
+    // Кнопка скасування
+    document.getElementById("cancel-btn").addEventListener("click", () => {
+        cancelCurrentTask();
     });
 
     document.getElementById("reload-history-btn").addEventListener("click", () => {
