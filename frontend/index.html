@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>WebApp — Gaussian Solver</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app-container">
+    <header class="app-header">
+        <h1>WebApp — Gaussian Solver</h1>
+        <div id="user-info" class="user-info"></div>
+    </header>
+
+    <main id="auth-section">
+        <div class="card auth-card">
+            <div class="tabs">
+                <button id="tab-login" class="tab active" data-mode="login">Логін</button>
+                <button id="tab-register" class="tab" data-mode="register">Реєстрація</button>
+            </div>
+
+            <div id="login-form" class="auth-form"> 
+                <label>Email</label>
+                <input type="email" id="login-email" placeholder="you@example.com">
+
+                <label>Пароль</label>
+                <input type="password" id="login-password" placeholder="••••••••">
+
+                <button id="login-btn" class="primary-btn" style="margin-top: 12px;">Увійти</button>
+
+                <div id="login-result" class="error-box" style="display: none; margin-top: 12px;"></div>
+            </div>
+
+
+            <div id="register-form" class="auth-form hidden">
+                <label>Ім'я</label>
+                <input type="text" id="reg-name" placeholder="Ваше ім'я">
+
+                <label>Email</label>
+                <input type="email" id="reg-email" placeholder="you@example.com">
+
+                <label>Пароль</label>
+                <input type="password" id="reg-password" placeholder="••••••••">
+
+                <button id="register-btn" class="primary-btn" style="margin-top: 12px;">Зареєструватись</button>
+                <div id="reg-result" class="error-box" style="display: none; margin-top: 12px;"></div>
+            </div>
+        </div>
+    </main>
+
+    <main id="main-content" class="hidden">
+        <div class="top-bar">
+            <div class="controls">
+                <button id="open-solver" class="primary-btn">Розв'язати систему</button>
+                <button id="open-history" class="secondary-btn">Історія завдань</button>
+            </div>
+            <button id="logout-btn" class="danger-btn">Вийти</button>
+        </div>
+
+        <section id="solver-section" class="card">
+            <h2>Розв'язання системи лінійних рівнянь</h2>
+
+            <div class="solver-controls">
+                <div>
+                    <label>Розмірність матриці (n×n)</label>
+                    <input type="number" id="matrix-size" min="2" max="100" value="3">
+                    <button id="generate-matrix-btn" class="secondary-btn small" style="margin-top: 12px;">Згенерувати</button>
+                </div>
+                <div>
+                    <label>Автозаповнення</label>
+                    <button id="fill-random-btn" class="secondary-btn small">Випадкові цілі [-10;10]</button>
+                </div>
+            </div>
+
+            <div class="matrix-wrapper">
+                <div>
+                    <h3>Матриця A</h3>
+                    <div id="matrix-container" class="matrix-grid"></div>
+                </div>
+                <div>
+                    <h3>Вектор b</h3>
+                    <div id="rhs-container" class="rhs-grid"></div>
+                </div>
+            </div>
+
+            <button id="solve-btn" class="primary-btn" style="width: 100%; margin-bottom: 16px;">Розв'язати</button>
+
+            <div class="progress-block">
+                <div class="progress-label">
+                    <span>Прогрес:</span>
+                    <span id="progress-text">0%</span>
+                </div>
+                <div id="progress-bar">
+                    <div id="progress-fill"></div>
+                </div>
+            </div>
+
+            <h3>Результат</h3>
+            <pre id="solve-result" class="result"></pre>
+        </section>
+
+        <section id="history-section" class="card hidden">
+            <div class="history-header">
+                <h2>Історія завдань</h2>
+                <button id="reload-history-btn" class="secondary-btn small">Оновити</button>
+            </div>
+            <div id="history-empty" class="muted-text">Поки що немає жодного збереженого завдання.</div>
+            <table id="history-table" class="history-table hidden">
+                <thead>
+                    <tr>
+                        <th>№</th>
+                        <th>Дата</th>
+                        <th>Розмір</th>
+                        <th>Дії</th>
+                    </tr>
+                </thead>
+                <tbody id="history-body"></tbody>
+            </table>
+        </section>
+    </main>
+</div>
+
+<div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Деталі завдання</h3>
+            <button id="modal-close" class="icon-btn">&times;</button>
+        </div>
+        <div id="modal-content" class="modal-content"></div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
