@@ -1,5 +1,6 @@
 import uuid
 import threading
+import time
 from backend.core.gauss_solver import GaussSolver
 from backend.core.validation import TaskValidator
 from backend.core.progress import ProgressTracker
@@ -188,22 +189,17 @@ class TaskManager:
         thread.start()
         print(f"[TaskManager] Thread started: {thread.name}, alive: {thread.is_alive()}")
         
-        # Чекаємо трохи щоб переконатись що потік запустився та створив запис в БД
-        import time
-        time.sleep(0.01)  # Збільшено до 100мс
-        
-        print(f"[TaskManager] Returning task_id {task_id}")
-        
-# Замість затримки - перевіряємо чи потік запустився
-        import time
-        timeout = 0.5  # Максимум 500мс на запуск
+        # Перевіряємо чи потік запустився (максимум 500мс очікування)
+        timeout = 0.5
         start = time.time()
         while not thread.is_alive() and (time.time() - start) < timeout:
             time.sleep(0.001)
         
         if not thread.is_alive():
             print(f"[TaskManager] WARNING: Thread failed to start!")
-
+        
+        print(f"[TaskManager] Returning task_id {task_id}")
+        
         return {
             "task_id": task_id,
             "status": "processing",
