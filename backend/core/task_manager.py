@@ -190,10 +190,20 @@ class TaskManager:
         
         # Чекаємо трохи щоб переконатись що потік запустився та створив запис в БД
         import time
-        time.sleep(0.1)  # Збільшено до 100мс
+        time.sleep(0.01)  # Збільшено до 100мс
         
         print(f"[TaskManager] Returning task_id {task_id}")
         
+# Замість затримки - перевіряємо чи потік запустився
+        import time
+        timeout = 0.5  # Максимум 500мс на запуск
+        start = time.time()
+        while not thread.is_alive() and (time.time() - start) < timeout:
+            time.sleep(0.001)
+        
+        if not thread.is_alive():
+            print(f"[TaskManager] WARNING: Thread failed to start!")
+
         return {
             "task_id": task_id,
             "status": "processing",

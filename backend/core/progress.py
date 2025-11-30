@@ -7,7 +7,7 @@ from backend.db import repository
 class ProgressTracker:
     """
     Трекер прогресу виконання задач через PostgreSQL
-    Підтримує як sync (для потоків), так і async (для FastAPI) виклики
+    ОПТИМІЗОВАНА ВЕРСІЯ: мінімальна кількість БД запитів
     """
 
     @staticmethod
@@ -55,12 +55,20 @@ class ProgressTracker:
 
     @staticmethod
     def update(task_id: str, value: float):
-        """Оновлює прогрес задачі в БД (sync версія для потоків)"""
+        """
+        Оновлює прогрес задачі в БД (sync версія для потоків)
+        ОПТИМІЗОВАНО: мінімальні БД запити, без зайвих print
+        """
         value = min(100, max(0, value))
         
-        # Логуємо тільки кожні 10%
-        if int(value) % 10 == 0:
-            print(f"[ProgressTracker] Task {task_id} progress: {int(value)}%")
+        # Логуємо тільки значні зміни (кожні 20%)
+        if int(value) % 20 == 0:
+            print(f"[ProgressTracker] Task {task_id}: {int(value)}%")
+        
+        # КРИТИЧНА ОПТИМІЗАЦІЯ: оновлюємо БД тільки на значних кроках
+        # Замість оновлення на кожному кроці - тільки кожні 10%
+        if int(value) % 10 != 0 and value != 100:
+            return  # Пропускаємо дрібні оновлення
         
         async def _update():
             session_maker, engine = ProgressTracker._get_db_session()
@@ -70,7 +78,12 @@ class ProgressTracker:
             finally:
                 await engine.dispose()
         
-        ProgressTracker._run_async_in_thread(_update())
+        # Запускаємо оновлення асинхронно (не блокуємо обчислення)
+        try:
+            ProgressTracker._run_async_in_thread(_update())
+        except Exception as e:
+            # Не падаємо якщо БД недоступна - просто логуємо
+            print(f"[ProgressTracker] Warning: failed to update progress for {task_id}: {e}")
 
     @staticmethod
     def get(task_id: str):
@@ -81,13 +94,16 @@ class ProgressTracker:
                 async with session_maker() as db:
                     task = await repository.get_task_progress(db, task_id)
                     if task is None:
-                        print(f"[ProgressTracker] Task {task_id} not found in DB")
                         return None
                     return task.progress
             finally:
                 await engine.dispose()
         
-        return ProgressTracker._run_async_in_thread(_get())
+        try:
+            return ProgressTracker._run_async_in_thread(_get())
+        except Exception as e:
+            print(f"[ProgressTracker] Warning: failed to get progress for {task_id}: {e}")
+            return None
 
     @staticmethod
     def finish(task_id: str):
@@ -102,7 +118,10 @@ class ProgressTracker:
             finally:
                 await engine.dispose()
         
-        ProgressTracker._run_async_in_thread(_finish())
+        try:
+            ProgressTracker._run_async_in_thread(_finish())
+        except Exception as e:
+            print(f"[ProgressTracker] Warning: failed to finish progress for {task_id}: {e}")
 
     # ============= ASYNC методи (для використання в FastAPI) =============
 
@@ -111,6 +130,5 @@ class ProgressTracker:
         """Отримує поточний прогрес задачі з БД (async версія для FastAPI)"""
         task = await repository.get_task_progress(db, task_id)
         if task is None:
-            print(f"[ProgressTracker] Task {task_id} not found in DB")
             return None
         return task.progress
