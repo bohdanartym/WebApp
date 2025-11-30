@@ -4,6 +4,15 @@ let accessToken = localStorage.getItem("access_token") || null;
 let currentTaskId = null;
 let pollingInterval = null;
 
+const MAX_MATRIX_SIZE = 5000;
+
+function clampMatrixSize(value) {
+    let n = parseInt(value, 10);
+    if (isNaN(n) || n < 2) n = 2;
+    if (n > MAX_MATRIX_SIZE) n = MAX_MATRIX_SIZE;
+    return n;
+}
+
 // Віртуальна матриця (зберігається в пам'яті, не в DOM)
 let virtualMatrix = [];
 let virtualVector = [];
@@ -112,9 +121,7 @@ function showHistory() {
 
 function generateMatrixGrid() {
     const sizeInput = document.getElementById("matrix-size");
-    let n = parseInt(sizeInput.value, 10);
-    if (isNaN(n) || n < 2) n = 2;
-    if (n > 5000) n = 5000;
+    const n = clampMatrixSize(sizeInput.value);
     sizeInput.value = n;
 
     const matrixContainer = document.getElementById("matrix-container");
@@ -122,9 +129,9 @@ function generateMatrixGrid() {
 
     // Для великих матриць (>100) не створюємо DOM елементи
     if (n > 100) {
-        // Ініціалізуємо віртуальну матрицю
-        virtualMatrix = Array(n).fill(0).map(() => Array(n).fill(0));
-        virtualVector = Array(n).fill(0);
+        // Скидаємо попередні дані, щоб уникнути випадкового підстановлення старого розміру
+        virtualMatrix = [];
+        virtualVector = [];
         
         matrixContainer.innerHTML = `
             <div style="padding: 40px; text-align: center; color: #9ca3af;">
@@ -180,9 +187,7 @@ function generateMatrixGrid() {
 
 function fillMatrixRandom() {
     const sizeInput = document.getElementById("matrix-size");
-    let n = parseInt(sizeInput.value, 10);
-    if (isNaN(n) || n < 2) n = 2;
-    if (n > 5000) n = 5000;
+    const n = clampMatrixSize(sizeInput.value);
     sizeInput.value = n;
 
     const min = -10;
@@ -225,13 +230,14 @@ function fillMatrixRandom() {
 
 function collectMatrixAndVector() {
     const sizeInput = document.getElementById("matrix-size");
-    let n = parseInt(sizeInput.value, 10);
-    if (isNaN(n) || n < 2) n = 2;
-    if (n > 5000) n = 5000;
+    const n = clampMatrixSize(sizeInput.value);
     sizeInput.value = n;
 
     // Якщо велика матриця - використовуємо віртуальну
     if (n > 100) {
+        if (virtualMatrix.length !== n || virtualVector.length !== n) {
+            throw { detail: `Будь ласка, згенеруйте матрицю ${n}×${n} (поточний кеш: ${virtualMatrix.length || 0}).` };
+        }
         console.log(`[Collect Matrix] Using virtual matrix ${n}×${n}`);
         return { 
             matrix: virtualMatrix, 
