@@ -39,27 +39,50 @@ async function apiRequest(method, path, body = null, auth = false) {
 
     let res;
     try {
+        console.log(`[API Request] ${method} ${path}`, body ? `Body size: ${JSON.stringify(body).length} bytes` : '');
+        
         res = await fetch(API_BASE + path, {
             method,
             headers,
             body: body ? JSON.stringify(body) : null
         });
     } catch (networkErr) {
-        throw { detail: "Помилка з'єднання з сервером" };
+        console.error('[API Request] Network error:', networkErr);
+        throw { detail: "Помилка з'єднання з сервером. Перевірте інтернет-з'єднання." };
     }
 
     let data = null;
     try {
-        data = await res.json();
-    } catch {
+        const textResponse = await res.text();
+        console.log(`[API Response] Status: ${res.status}, Body length: ${textResponse.length}`);
+        
+        if (textResponse) {
+            data = JSON.parse(textResponse);
+        }
+    } catch (parseErr) {
+        console.error('[API Response] JSON parse error:', parseErr);
         data = null;
     }
 
     if (!res.ok) {
+        console.error(`[API Response] Error ${res.status}:`, data);
+        
+        if (res.status === 413) {
+            throw { detail: "Матриця занадто велика для передачі. Спробуйте менший розмір." };
+        }
+        
+        if (res.status === 422) {
+            throw { detail: "Помилка валідації даних. Перевірте формат матриці." };
+        }
+        
+        if (res.status === 500) {
+            throw { detail: "Внутрішня помилка сервера. Спробуйте пізніше або зменште розмір матриці." };
+        }
+        
         if (data && data.detail) {
             throw { detail: data.detail };
         } else {
-            throw { detail: "Невідома помилка сервера" };
+            throw { detail: `Помилка сервера (код ${res.status})` };
         }
     }
 
@@ -91,7 +114,7 @@ function generateMatrixGrid() {
     const sizeInput = document.getElementById("matrix-size");
     let n = parseInt(sizeInput.value, 10);
     if (isNaN(n) || n < 2) n = 2;
-    if (n > 1000) n = 1000;
+    if (n > 5000) n = 5000;
     sizeInput.value = n;
 
     const matrixContainer = document.getElementById("matrix-container");
@@ -159,7 +182,7 @@ function fillMatrixRandom() {
     const sizeInput = document.getElementById("matrix-size");
     let n = parseInt(sizeInput.value, 10);
     if (isNaN(n) || n < 2) n = 2;
-    if (n > 1000) n = 1000;
+    if (n > 5000) n = 5000;
     sizeInput.value = n;
 
     const min = -10;
@@ -167,6 +190,9 @@ function fillMatrixRandom() {
 
     // Якщо велика матриця - заповнюємо віртуальну
     if (n > 100) {
+        console.log(`[Fill Random] Generating ${n}×${n} virtual matrix...`);
+        const startTime = performance.now();
+        
         virtualMatrix = Array(n).fill(0).map(() => 
             Array(n).fill(0).map(() => Math.floor(Math.random() * (max - min + 1)) + min)
         );
@@ -174,7 +200,10 @@ function fillMatrixRandom() {
             Math.floor(Math.random() * (max - min + 1)) + min
         );
         
-        alert(`Згенеровано матрицю ${n}×${n} та вектор b з випадковими значеннями від ${min} до ${max}`);
+        const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+        console.log(`[Fill Random] Generated in ${elapsed}s`);
+        
+        alert(`Згенеровано матрицю ${n}×${n} та вектор b з випадковими значеннями від ${min} до ${max}\n(час генерації: ${elapsed}s)`);
         return;
     }
 
@@ -198,11 +227,12 @@ function collectMatrixAndVector() {
     const sizeInput = document.getElementById("matrix-size");
     let n = parseInt(sizeInput.value, 10);
     if (isNaN(n) || n < 2) n = 2;
-    if (n > 1000) n = 1000;
+    if (n > 5000) n = 5000;
     sizeInput.value = n;
 
     // Якщо велика матриця - використовуємо віртуальну
     if (n > 100) {
+        console.log(`[Collect Matrix] Using virtual matrix ${n}×${n}`);
         return { 
             matrix: virtualMatrix, 
             rhs: virtualVector 
@@ -618,6 +648,8 @@ function init() {
 
         const { matrix, rhs } = collectMatrixAndVector();
 
+        console.log(`[Solve] Sending matrix ${matrix.length}×${matrix.length}`);
+
         try {
             // Відправляємо запит на розв'язання
             const data = await apiRequest("POST", "/gauss/solve", {
@@ -643,7 +675,7 @@ function init() {
             resetProgress();
             resultEl.textContent = "Помилка: " + (err?.detail || "невідома");
             cancelBtn.classList.add("hidden");
-            console.error(err);
+            console.error("[Solve] Error:", err);
         }
     });
 
