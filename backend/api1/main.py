@@ -18,15 +18,13 @@ class GaussInput(BaseModel):
     matrix: List[List[float]]
     rhs: List[float]
 
-# ⚠️ ДЛЯ API1: title="API1", from="api1"
-# ⚠️ ДЛЯ API2: title="API2", from="api2"
 app = FastAPI(title="API1")
 
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "from": "api1"}  # ⚠️ Змініть на "api2" для другого сервера
+    return {"status": "ok", "from": "api1"}
 
 @app.get("/db-test")
 async def db_test(db: AsyncSession = Depends(get_db)):
