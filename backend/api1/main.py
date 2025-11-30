@@ -52,7 +52,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 # Обробка загальних помилок
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
-    print(f"[API1] Unexpected error: {type(exc).__name__}: {exc}")
+    print(f"[API2] Unexpected error: {type(exc).__name__}: {exc}")
     return JSONResponse(
         status_code=500,
         content={"detail": f"Внутрішня помилка сервера: {str(exc)}"}
@@ -62,7 +62,7 @@ app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "from": "api1"}
+    return {"status": "ok", "from": "api1"} 
 
 @app.get("/db-test")
 async def db_test(db: AsyncSession = Depends(get_db)):
@@ -81,13 +81,13 @@ async def solve(
     """
     # Додаткова валідація для дуже великих матриць
     n = len(data.matrix)
-    if n > 1000:
+    if n > 5000:
         return JSONResponse(
             status_code=400,
-            content={"detail": f"Матриця {n}×{n} занадто велика. Максимум 1000×1000"}
+            content={"detail": f"Матриця {n}×{n} занадто велика. Максимум 5000×5000"}
         )
     
-    print(f"[API1] Received solve request: matrix {n}×{n}, user_id={user.id}")
+    print(f"[API2] Received solve request: matrix {n}×{n}, user_id={user.id}")
     
     result = await TaskManager.start_gauss_task(
         user_id=user.id,
