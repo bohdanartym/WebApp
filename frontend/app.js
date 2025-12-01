@@ -74,19 +74,7 @@ async function apiRequest(method, path, body = null, auth = false) {
 
     if (!res.ok) {
         console.error(`[API Response] Error ${res.status}:`, data);
-        
-        if (res.status === 413) {
-            throw { detail: "Матриця занадто велика для передачі. Спробуйте менший розмір." };
-        }
-        
-        if (res.status === 422) {
-            throw { detail: "Помилка валідації даних. Перевірте формат матриці." };
-        }
-        
-        if (res.status === 500) {
-            throw { detail: "Внутрішня помилка сервера. Спробуйте пізніше або зменште розмір матриці." };
-        }
-        
+         
         if (data && data.detail) {
             throw { detail: data.detail };
         } else {
@@ -657,7 +645,7 @@ function init() {
 
             if (data.task_id) {
                 currentTaskId = data.task_id;
-                resultEl.textContent = "Завдання прийнято та перебуває в обробці...\nTask ID: " + data.task_id;
+                resultEl.textContent = "Завдання прийнято та перебуває в обробці...";
                 
                 cancelBtn.classList.remove("hidden");
                 

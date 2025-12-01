@@ -38,10 +38,6 @@ async def solve(
     db: AsyncSession = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    """
-    Запускає розв'язання системи рівнянь у фоновому режимі
-    Повертає task_id для відстеження прогресу
-    """
 
     n = len(data.matrix)    
     print(f"[API2] Received solve request: matrix {n}×{n}, user_id={user.id}")
@@ -57,9 +53,7 @@ async def solve(
 
 @app.get("/tasks/status/{task_id}")
 async def get_task_status(task_id: str, db: AsyncSession = Depends(get_db)):
-    """
-    Отримує поточний статус задачі з БД
-    """
+
     print(f"[API] Getting status for task {task_id}")
     result = await TaskManager.get_task_status_from_db(task_id, db)
     print(f"[API] Status result: {result}")
@@ -67,9 +61,7 @@ async def get_task_status(task_id: str, db: AsyncSession = Depends(get_db)):
 
 @app.get("/tasks/result/{task_id}")
 async def get_task_result(task_id: str, db: AsyncSession = Depends(get_db)):
-    """
-    Отримує результат завершеної задачі з БД
-    """
+
     result = await TaskManager.get_task_result_from_db(task_id, db)
     
     if result is None:
@@ -83,9 +75,7 @@ async def get_task_result(task_id: str, db: AsyncSession = Depends(get_db)):
 
 @app.post("/tasks/cancel/{task_id}")
 async def cancel_task(task_id: str, db: AsyncSession = Depends(get_db)):
-    """
-    Скасовує виконання задачі через БД
-    """
+
     return await TaskManager.cancel_task_in_db(task_id, db)
 
 @app.get("/tasks/user/me", response_model=list[TaskOut])
@@ -93,16 +83,12 @@ async def get_my_tasks(
     db: AsyncSession = Depends(get_db),
     user: models.User = Depends(get_current_user)
 ):
-    """
-    Отримує всі задачі поточного користувача
-    """
+
     return await get_tasks_for_user(db, user.id)
 
 @app.get("/tasks/user/{user_id}", response_model=list[TaskOut])
 async def get_user_tasks(user_id: int, db: AsyncSession = Depends(get_db)):
-    """
-    Отримує всі задачі конкретного користувача
-    """
+
     return await get_tasks_for_user(db, user_id)
 
 @app.middleware("http")
