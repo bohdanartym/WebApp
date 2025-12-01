@@ -40,7 +40,7 @@ async def solve(
 ):
 
     n = len(data.matrix)    
-    print(f"[API2] Received solve request: matrix {n}×{n}, user_id={user.id}")
+    print(f"[API1] Received solve request: matrix {n}×{n}, user_id={user.id}")
     
     result = await TaskManager.start_gauss_task(
         user_id=user.id,

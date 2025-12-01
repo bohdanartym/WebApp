@@ -65,14 +65,13 @@ async def create_task_progress(db: AsyncSession, task_id: str, user_id: int):
     return task_progress
 
 async def get_task_progress(db: AsyncSession, task_id: str):
-    """Отримує прогрес задачі за ID"""
     result = await db.execute(
         select(models.TaskProgress).where(models.TaskProgress.task_id == task_id)
     )
     return result.scalar_one_or_none()
 
 async def update_task_progress_value(db: AsyncSession, task_id: str, progress: float):
-    """Оновлює тільки значення прогресу"""
+
     await db.execute(
         update(models.TaskProgress)
         .where(models.TaskProgress.task_id == task_id)

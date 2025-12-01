@@ -3,7 +3,7 @@ import threading
 import time
 from backend.core.gauss_solver import GaussSolver
 from backend.core.validation import TaskValidator
-
+from backend.db.schemas import TaskCreate
 import asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
@@ -62,7 +62,7 @@ class TaskManager:
                     )
                     try:
                         async with async_session_maker() as db:
-                            from backend.db.schemas import TaskCreate
+
                             await repository.add_task(
                                 db,
                                 TaskCreate(
@@ -182,8 +182,6 @@ class TaskManager:
     @staticmethod
     async def get_task_status_from_db(task_id: str, db):
 
-        from backend.db import repository
-        
         task = await repository.get_task_progress(db, task_id)
         
         if task is None:
@@ -207,8 +205,6 @@ class TaskManager:
 
     @staticmethod
     async def get_task_result_from_db(task_id: str, db):
-
-        from backend.db import repository
         
         task = await repository.get_task_progress(db, task_id)
         
