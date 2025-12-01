@@ -5,8 +5,6 @@ from backend.db.schemas import TaskCreate, UserCreate
 from datetime import datetime
 from backend.auth.auth_utils import hash_password
 
-# ============= USER METHODS =============
-
 async def create_user(db: AsyncSession, data: UserCreate):
     new_user = models.User(
         name=data.name,
@@ -30,7 +28,7 @@ async def get_user_by_id(db: AsyncSession, user_id: int):
     )
     return result.scalar_one_or_none()
 
-# ============= TASK HISTORY METHODS =============
+
 
 async def add_task(db: AsyncSession, data: TaskCreate):
     new_task = models.TaskHistory(
@@ -50,10 +48,10 @@ async def get_tasks_for_user(db: AsyncSession, user_id: int):
     )
     return result.scalars().all()
 
-# ============= TASK PROGRESS METHODS =============
+
 
 async def create_task_progress(db: AsyncSession, task_id: str, user_id: int):
-    """Створює новий запис прогресу задачі"""
+
     task_progress = models.TaskProgress(
         task_id=task_id,
         user_id=user_id,
@@ -90,7 +88,7 @@ async def update_task_progress_status(
     result: dict = None,
     error_message: str = None
 ):
-    """Оновлює статус та інші параметри задачі"""
+
     values = {
         "status": status,
         "updated_at": datetime.utcnow()
@@ -111,7 +109,7 @@ async def update_task_progress_status(
     await db.commit()
 
 async def cancel_task_progress(db: AsyncSession, task_id: str):
-    """Позначає задачу як скасовану"""
+
     await db.execute(
         update(models.TaskProgress)
         .where(models.TaskProgress.task_id == task_id)
@@ -125,7 +123,7 @@ async def cancel_task_progress(db: AsyncSession, task_id: str):
     await db.commit()
 
 async def is_task_cancelled(db: AsyncSession, task_id: str) -> bool:
-    """Перевіряє чи задача скасована"""
+
     result = await db.execute(
         select(models.TaskProgress.is_cancelled)
         .where(models.TaskProgress.task_id == task_id)
@@ -134,7 +132,7 @@ async def is_task_cancelled(db: AsyncSession, task_id: str) -> bool:
     return cancelled if cancelled is not None else False
 
 async def delete_old_task_progress(db: AsyncSession, days: int = 7):
-    """Видаляє старі записи прогресу (для очищення БД)"""
+
     from datetime import timedelta
     cutoff_date = datetime.utcnow() - timedelta(days=days)
     

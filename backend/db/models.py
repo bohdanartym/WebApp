@@ -28,22 +28,19 @@ class TaskHistory(Base):
 
 
 class TaskProgress(Base):
-    """
-    Таблиця для відстеження прогресу задач в реальному часі
-    Використовується для синхронізації між backend серверами
-    """
+
     __tablename__ = "task_progress"
 
-    task_id = Column(String, primary_key=True, index=True)  # UUID задачі
+    task_id = Column(String, primary_key=True, index=True)  
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     
-    status = Column(String, nullable=False, default="processing")  # processing, completed, error, cancelled
-    progress = Column(Float, nullable=False, default=0.0)  # 0-100
+    status = Column(String, nullable=False, default="processing")  
+    progress = Column(Float, nullable=False, default=0.0)  
     
-    result = Column(JSON, nullable=True)  # Результат (solution або error)
-    error_message = Column(String, nullable=True)  # Повідомлення про помилку
+    result = Column(JSON, nullable=True)  
+    error_message = Column(String, nullable=True)
     
-    is_cancelled = Column(Boolean, nullable=False, default=False)  # Чи скасована задача
+    is_cancelled = Column(Boolean, nullable=False, default=False) 
     
     created_at = Column(DateTime(timezone=False), server_default=func.now())
     updated_at = Column(DateTime(timezone=False), server_default=func.now(), onupdate=func.now())

@@ -6,22 +6,13 @@ from backend.db.database import DATABASE_URL
 from backend.db import repository
 
 class ProgressTracker:
-    """
-    Трекер прогресу виконання задач через PostgreSQL
-    THREAD-SAFE версія: кожен потік має свій engine
-    """
 
-    # Кеш останнього збереженого значення
     _last_saved = {}
     _last_saved_lock = threading.Lock()
 
     @staticmethod
     def _run_async_in_thread(coro):
-        """
-        Запускає async функцію в потоці
-        Створює НОВИЙ loop для кожного виклику
-        """
-        # Створюємо НОВИЙ event loop для цього потоку
+
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
@@ -47,11 +38,7 @@ class ProgressTracker:
 
     @staticmethod
     def _create_db_session():
-        """
-        Створює НОВУ DB сесію з НОВИМ engine для кожного виклику
-        Це дозволяє уникнути проблем з різними event loops
-        """
-        # Створюємо новий engine (він буде прив'язаний до поточного loop)
+
         engine = create_async_engine(
             DATABASE_URL, 
             echo=False,
@@ -70,7 +57,7 @@ class ProgressTracker:
 
     @staticmethod
     def start(task_id: str, user_id: int = None):
-        """Ініціалізує прогрес задачі в БД"""
+
         if user_id is None:
             print(f"[ProgressTracker] Warning: user_id not provided for {task_id}")
             return
@@ -90,29 +77,22 @@ class ProgressTracker:
 
     @staticmethod
     def update(task_id: str, value: float, matrix_size: int = 100):
-        """
-        Оновлює прогрес задачі в БД
-        АДАПТИВНА версія з мінімальними оновленнями
-        """
+
         value = min(100, max(0, value))
-        
-        # Логуємо тільки значні зміни
+
         if int(value) % 20 == 0:
             print(f"[ProgressTracker] Task {task_id}: {int(value)}%")
-        
-        # Отримуємо останнє збережене значення
+
         with ProgressTracker._last_saved_lock:
             last_saved = ProgressTracker._last_saved.get(task_id, 0)
-        
-        # АДАПТИВНА ЛОГІКА
+
         if matrix_size <= 100:
             threshold = 10
         elif matrix_size <= 500:
             threshold = 5
         else:
             threshold = 2
-        
-        # Перевіряємо чи потрібно оновлювати БД
+
         should_update = (
             value == 100 or
             value == 0 or
@@ -140,7 +120,6 @@ class ProgressTracker:
 
     @staticmethod
     def get(task_id: str):
-        """Отримує поточний прогрес задачі з БД"""
         async def _get():
             session_maker, engine = ProgressTracker._create_db_session()
             try:
@@ -160,7 +139,6 @@ class ProgressTracker:
 
     @staticmethod
     def finish(task_id: str):
-        """Завершує відстеження прогресу"""
         async def _finish():
             session_maker, engine = ProgressTracker._create_db_session()
             try:
@@ -172,7 +150,6 @@ class ProgressTracker:
         try:
             ProgressTracker._run_async_in_thread(_finish())
             
-            # Очищаємо кеш
             with ProgressTracker._last_saved_lock:
                 if task_id in ProgressTracker._last_saved:
                     del ProgressTracker._last_saved[task_id]
@@ -181,7 +158,6 @@ class ProgressTracker:
 
     @staticmethod
     async def get_async(task_id: str, db: AsyncSession):
-        """Async версія для FastAPI (використовує існуючу сесію)"""
         task = await repository.get_task_progress(db, task_id)
         if task is None:
             return None

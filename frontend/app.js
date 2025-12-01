@@ -13,7 +13,6 @@ function clampMatrixSize(value) {
     return n;
 }
 
-// Віртуальна матриця (зберігається в пам'яті, не в DOM)
 let virtualMatrix = [];
 let virtualVector = [];
 
@@ -127,9 +126,8 @@ function generateMatrixGrid() {
     const matrixContainer = document.getElementById("matrix-container");
     const rhsContainer = document.getElementById("rhs-container");
 
-    // Для великих матриць (>100) не створюємо DOM елементи
     if (n > 100) {
-        // Скидаємо попередні дані, щоб уникнути випадкового підстановлення старого розміру
+
         virtualMatrix = [];
         virtualVector = [];
         
@@ -148,7 +146,6 @@ function generateMatrixGrid() {
         return;
     }
 
-    // Для невеликих матриць створюємо input поля
     const table = document.createElement("table");
     for (let i = 0; i < n; i++) {
         const row = document.createElement("tr");
@@ -193,7 +190,6 @@ function fillMatrixRandom() {
     const min = -10;
     const max = 10;
 
-    // Якщо велика матриця - заповнюємо віртуальну
     if (n > 100) {
         console.log(`[Fill Random] Generating ${n}×${n} virtual matrix...`);
         const startTime = performance.now();
@@ -212,7 +208,6 @@ function fillMatrixRandom() {
         return;
     }
 
-    // Для невеликих матриць заповнюємо input поля
     for (let i = 0; i < n; i++) {
         for (let j = 0; j < n; j++) {
             const el = document.getElementById(`cell-${i}-${j}`);
@@ -233,7 +228,6 @@ function collectMatrixAndVector() {
     const n = clampMatrixSize(sizeInput.value);
     sizeInput.value = n;
 
-    // Якщо велика матриця - використовуємо віртуальну
     if (n > 100) {
         if (virtualMatrix.length !== n || virtualVector.length !== n) {
             throw { detail: `Будь ласка, згенеруйте матрицю ${n}×${n} (поточний кеш: ${virtualMatrix.length || 0}).` };
@@ -245,7 +239,6 @@ function collectMatrixAndVector() {
         };
     }
 
-    // Для невеликих матриць збираємо з input полів
     const matrix = [];
     const rhs = [];
 
@@ -297,15 +290,15 @@ async function startPolling(taskId) {
     
     pollingInterval = setInterval(async () => {
         try {
-            // Отримуємо статус задачі
+            
             const status = await apiRequest("GET", `/tasks/status/${taskId}`, null, false);
             
             if (status.status === "processing") {
-                // Оновлюємо прогрес
+                
                 updateProgress(status.progress || 0);
                 
             } else if (status.status === "completed") {
-                // Задача завершена - отримуємо результат
+                
                 stopPolling();
                 updateProgress(100);
                 
@@ -314,8 +307,7 @@ async function startPolling(taskId) {
                 if (result.solution) {
                     const n = result.solution.length;
                     let text = `Розв'язок (${n} змінних):\n`;
-                    
-                    // Показуємо перші 20 значень для великих векторів
+
                     const showCount = Math.min(20, n);
                     for (let i = 0; i < showCount; i++) {
                         text += `x${i + 1} = ${result.solution[i]}\n`;
@@ -333,7 +325,7 @@ async function startPolling(taskId) {
                 currentTaskId = null;
                 
             } else if (status.status === "cancelled") {
-                // Задача скасована
+
                 stopPolling();
                 resetProgress();
                 resultEl.textContent = "Завдання скасовано";
@@ -341,7 +333,7 @@ async function startPolling(taskId) {
                 currentTaskId = null;
                 
             } else if (status.status === "error") {
-                // Помилка виконання
+
                 stopPolling();
                 resetProgress();
                 
@@ -352,7 +344,7 @@ async function startPolling(taskId) {
                 currentTaskId = null;
                 
             } else if (status.status === "not_found") {
-                // Задача не знайдена
+
                 stopPolling();
                 resetProgress();
                 resultEl.textContent = "Задача не знайдена";
@@ -366,7 +358,7 @@ async function startPolling(taskId) {
             resultEl.textContent = "Помилка перевірки статусу: " + (err?.detail || "невідома");
             cancelBtn.classList.add("hidden");
         }
-    }, 500); // Перевірка кожні 500мс
+    }, 500); 
 }
 
 async function cancelCurrentTask() {
@@ -374,7 +366,7 @@ async function cancelCurrentTask() {
     
     try {
         await apiRequest("POST", `/tasks/cancel/${currentTaskId}`, null, false);
-        // Polling продовжиться і виявить статус "cancelled"
+
     } catch (err) {
         console.error("Cancel error:", err);
         alert("Помилка скасування: " + (err?.detail || "невідома"));
@@ -458,7 +450,7 @@ function showTaskDetails(task) {
 
     html += `<h4>Матриця A (${n}×${n})</h4>`;
     if (Array.isArray(matrix) && matrix.length > 0) {
-        // Показуємо тільки перші 10×10 для великих матриць
+
         const showSize = Math.min(10, n);
         html += "<table>";
         for (let i = 0; i < showSize; i++) {
@@ -657,7 +649,7 @@ function init() {
         console.log(`[Solve] Sending matrix ${matrix.length}×${matrix.length}`);
 
         try {
-            // Відправляємо запит на розв'язання
+
             const data = await apiRequest("POST", "/gauss/solve", {
                 matrix,
                 rhs
@@ -667,10 +659,8 @@ function init() {
                 currentTaskId = data.task_id;
                 resultEl.textContent = "Завдання прийнято та перебуває в обробці...\nTask ID: " + data.task_id;
                 
-                // Показуємо кнопку скасування
                 cancelBtn.classList.remove("hidden");
                 
-                // Запускаємо polling для відстеження прогресу
                 await startPolling(data.task_id);
             } else {
                 resultEl.textContent = "Помилка: не отримано task_id";
@@ -685,7 +675,6 @@ function init() {
         }
     });
 
-    // Кнопка скасування
     document.getElementById("cancel-btn").addEventListener("click", () => {
         cancelCurrentTask();
     });

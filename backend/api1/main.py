@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Depends, Request
-from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -22,42 +21,6 @@ class GaussInput(BaseModel):
 
 app = FastAPI(title="API1")
 
-# КРИТИЧНО: Збільшуємо ліміт розміру body для великих матриць
-# 5000×5000 матриця ≈ 1.2 GB в JSON
-@app.middleware("http")
-async def limit_upload_size(request: Request, call_next):
-    # Встановлюємо ліміт 2 GB для великих матриць
-    max_size = 2 * 1024 * 1024 * 1024  # 2 GB
-    content_length = request.headers.get("content-length")
-    
-    if content_length and int(content_length) > max_size:
-        return JSONResponse(
-            status_code=413,
-            content={"detail": f"Payload занадто великий. Максимум {max_size // (1024*1024)} MB"}
-        )
-    
-    return await call_next(request)
-
-# Обробка помилок валідації
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    return JSONResponse(
-        status_code=422,
-        content={
-            "detail": "Помилка валідації даних. Перевірте формат матриці.",
-            "errors": exc.errors()
-        }
-    )
-
-# Обробка загальних помилок
-@app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
-    print(f"[API2] Unexpected error: {type(exc).__name__}: {exc}")
-    return JSONResponse(
-        status_code=500,
-        content={"detail": f"Внутрішня помилка сервера: {str(exc)}"}
-    )
-
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 
 @app.get("/health")
@@ -79,14 +42,8 @@ async def solve(
     Запускає розв'язання системи рівнянь у фоновому режимі
     Повертає task_id для відстеження прогресу
     """
-    # Додаткова валідація для дуже великих матриць
-    n = len(data.matrix)
-    if n > 5000:
-        return JSONResponse(
-            status_code=400,
-            content={"detail": f"Матриця {n}×{n} занадто велика. Максимум 5000×5000"}
-        )
-    
+
+    n = len(data.matrix)    
     print(f"[API2] Received solve request: matrix {n}×{n}, user_id={user.id}")
     
     result = await TaskManager.start_gauss_task(
@@ -147,3 +104,16 @@ async def get_user_tasks(user_id: int, db: AsyncSession = Depends(get_db)):
     Отримує всі задачі конкретного користувача
     """
     return await get_tasks_for_user(db, user_id)
+
+@app.middleware("http")
+async def limit_upload_size(request: Request, call_next):
+    max_size = 2 * 1024 * 1024 * 1024  # 2 GB
+    content_length = request.headers.get("content-length")
+    
+    if content_length and int(content_length) > max_size:
+        return JSONResponse(
+            status_code=413,
+            content={"detail": f"Payload занадто великий. Максимум {max_size // (1024*1024)} MB"}
+        )
+    
+    return await call_next(request)
